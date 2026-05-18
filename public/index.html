@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dytto — Rive State Tester</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0c;
+      --surface: #161616;
+      --surface2: #1f1f1f;
+      --border: #2a2a2a;
+      --text: #e2e2e2;
+      --muted: #606060;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --user-bg: #1e1b4b;
+      --user-text: #c7d2fe;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── Debug bar ─── */
+    #debug-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #debug-bar .label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
+    .state-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+
+    .pill {
+      padding: 3px 10px;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .pill:hover { border-color: #444; color: var(--text); }
+    .pill.active { border-color: transparent; color: #fff; }
+    .pill[data-s="idle"].active    { background: #374151; }
+    .pill[data-s="submitted"].active { background: #1d4ed8; }
+    .pill[data-s="reasoning"].active { background: #92400e; }
+    .pill[data-s="streaming"].active { background: #065f46; }
+    .pill[data-s="ready"].active   { background: #4c1d95; }
+    .pill[data-s="error"].active   { background: #7f1d1d; }
+
+    .state-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #374151;
+      transition: background .3s;
+      flex-shrink: 0;
+    }
+    #state-name {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 60px;
+    }
+
+    .bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+    #inspector-btn {
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #inspector-btn:hover { border-color: #444; color: var(--text); }
+
+    /* ─── Layout ─── */
+    #layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ─── Chat column ─── */
+    #chat-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ─── Messages ─── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 0 8px;
+      scroll-behavior: smooth;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg-row {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 5px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .msg-row.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .avatar.ai { background: linear-gradient(135deg, var(--accent), #8b5cf6); color: #fff; }
+    .avatar.user { background: #2d2d2d; color: #888; }
+
+    .bubble {
+      max-width: calc(100% - 50px);
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-row.user .bubble {
+      background: var(--user-bg);
+      color: var(--user-text);
+      border-bottom-right-radius: 4px;
+    }
+    .msg-row.ai .bubble {
+      background: var(--surface2);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.streaming::after {
+      content: '▋';
+      animation: blink .75s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ─── Welcome ─── */
+    #welcome {
+      max-width: 740px;
+      margin: 48px auto 0;
+      padding: 0 24px;
+      text-align: center;
+    }
+    #welcome h1 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -.02em;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    #welcome p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    #welcome .hint {
+      margin-top: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #404040;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+
+    /* ─── Rive loader area ─── */
+    #rive-zone {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0 4px;
+      gap: 6px;
+      min-height: 160px;
+      justify-content: center;
+    }
+
+    #rive-wrap {
+      width: 140px;
+      height: 140px;
+      position: relative;
+    }
+    #rive-canvas { width: 140px; height: 140px; display: block; }
+
+    #rive-state-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: color .3s;
+    }
+
+    /* ─── Input area ─── */
+    #input-zone {
+      flex-shrink: 0;
+      padding: 8px 24px 18px;
+      max-width: 788px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    #input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 10px 10px 14px;
+      transition: border-color .2s;
+    }
+    #input-box:focus-within { border-color: #3730a3; }
+
+    #msg-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      font-family: inherit;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    #msg-input::placeholder { color: var(--muted); }
+
+    #send-btn {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s, opacity .15s;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    #send-btn:disabled { opacity: .35; cursor: not-allowed; }
+    #send-btn svg { width: 15px; height: 15px; }
+
+    /* ─── Inspector panel ─── */
+    #inspector {
+      width: 0;
+      background: var(--surface);
+      border-left: 1px solid transparent;
+      overflow: hidden;
+      transition: width .25s ease, border-color .25s;
+      display: flex;
+      flex-direction: column;
+    }
+    #inspector.open {
+      width: 290px;
+      border-color: var(--border);
+    }
+
+    #insp-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    #insp-close {
+      background: none; border: none;
+      color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1;
+    }
+
+    #insp-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      white-space: nowrap;
+    }
+
+    .insp-section { margin-bottom: 20px; }
+    .insp-section h4 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .insp-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: var(--surface2);
+      border-radius: 7px;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+    .insp-row .name { color: var(--text); font-weight: 500; }
+    .insp-row .type { color: var(--muted); font-size: 10px; }
+    .insp-row .val  { color: #86efac; font-size: 10px; font-family: monospace; }
+
+    .fire-btn {
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #1e1b4b;
+      border: 1px solid #3730a3;
+      color: #a5b4fc;
+      font-size: 10px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .fire-btn:hover { background: #312e81; }
+
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .tag.sm  { background: #1e1b4b; color: #a5b4fc; border: 1px solid #3730a3; }
+    .tag.vm  { background: #052e16; color: #86efac; border: 1px solid #166534; }
+    .tag.str { color: #fbbf24; }
+    .tag.bool{ color: #60a5fa; }
+    .tag.num { color: #f472b6; }
+    .tag.trig{ color: #a78bfa; }
+
+    /* ─── Error toast ─── */
+    #toast {
+      position: fixed;
+      bottom: 90px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      padding: 9px 18px;
+      border-radius: 9px;
+      font-size: 13px;
+      opacity: 0;
+      transition: all .25s;
+      pointer-events: none;
+      max-width: 500px;
+      text-align: center;
+      z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ─── Debug bar ─── -->
+<div id="debug-bar">
+  <span class="label">States</span>
+  <div class="state-pills">
+    <button class="pill active" data-s="idle"      onclick="setAppState('idle')">idle</button>
+    <button class="pill"        data-s="submitted"  onclick="setAppState('submitted')">submitted</button>
+    <button class="pill"        data-s="reasoning"  onclick="setAppState('reasoning')">reasoning</button>
+    <button class="pill"        data-s="streaming"  onclick="setAppState('streaming')">streaming</button>
+    <button class="pill"        data-s="ready"      onclick="setAppState('ready')">ready</button>
+    <button class="pill"        data-s="error"      onclick="setAppState('error')">error</button>
+  </div>
+  <div class="bar-right">
+    <div class="state-dot" id="dot"></div>
+    <span id="state-name">idle</span>
+    <button id="inspector-btn" onclick="toggleInspector()">Rive Inspector ⌥</button>
+  </div>
+</div>
+
+<!-- ─── Main layout ─── -->
+<div id="layout">
+
+  <!-- Chat column -->
+  <div id="chat-col">
+
+    <!-- Messages -->
+    <div id="messages">
+      <div id="welcome">
+        <h1>Dytto</h1>
+        <p>Chat with the AI to see real state transitions.<br>Or use the bar above to manually trigger any state.</p>
+        <div class="hint">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Rive file: <strong>Chat Loader SM</strong> · vm: <strong>ChatLoaderVM.state</strong> + <strong>isVisible</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rive loader -->
+    <div id="rive-zone">
+      <div id="rive-wrap">
+        <canvas id="rive-canvas" width="280" height="280"></canvas>
+      </div>
+      <span id="rive-state-label">idle</span>
+    </div>
+
+    <!-- Input -->
+    <div id="input-zone">
+      <div id="input-box">
+        <textarea id="msg-input" rows="1"
+          placeholder="Message Dytto…"
+          onkeydown="onKey(event)"
+          oninput="grow(this)"></textarea>
+        <button id="send-btn" onclick="send()" title="Send (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Inspector panel -->
+  <div id="inspector">
+    <div id="insp-header">
+      <span>Rive Inspector</span>
+      <button id="insp-close" onclick="toggleInspector()">×</button>
+    </div>
+    <div id="insp-body">
+      <div class="insp-section">
+        <h4>State Machine</h4>
+        <div id="insp-sm">Waiting for Rive…</div>
+      </div>
+      <div class="insp-section">
+        <h4>ViewModel</h4>
+        <div id="insp-vm">—</div>
+      </div>
+      <div class="insp-section">
+        <h4>SM Inputs</h4>
+        <div id="insp-inputs">—</div>
+      </div>
+      <div class="insp-section">
+        <h4>Live values</h4>
+        <div id="insp-live">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script type="module">
+import RiveModule from 'https://cdn.jsdelivr.net/npm/@rive-app/canvas-single@2.34.0/+esm';
+const { Rive, Layout, Fit, Alignment, StateMachineInputType } = RiveModule;
+
+// ── Constants ────────────────────────────────────────────────
+const SM_NAME = 'Chat Loader SM';
+const VM_NAME = 'ChatLoaderVM';
+const STATE_COLORS = {
+  idle:      '#4b5563',
+  submitted: '#2563eb',
+  reasoning: '#d97706',
+  streaming: '#059669',
+  ready:     '#7c3aed',
+  error:     '#dc2626',
+};
+
+// ── App state ────────────────────────────────────────────────
+let riveInst   = null;
+let vmInstance = null;
+let smInputs   = [];
+let appState   = 'idle';
+let busy       = false;
+let history    = [];   // Anthropic messages array
+
+// ── Rive init ────────────────────────────────────────────────
+const resolvedSmName = SM_NAME;   // 'Chat Loader SM'
+const resolvedVmName = VM_NAME;   // 'ChatLoaderVM'
+
+async function initRive() {
+  const canvas = document.getElementById('rive-canvas');
+  mountRive(canvas);
+}
+
+function mountRive(canvas) {
+  riveInst = new Rive({
+    src: '/loader.riv',
+    canvas,
+    autoplay: true,
+    stateMachines: [resolvedSmName],   // force this one, ignore "State Machine 1" default
+    layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
+    onLoad() {
+      riveInst.resizeDrawingSurfaceToCanvas();
+
+      smInputs = riveInst.stateMachineInputs(resolvedSmName) || [];
+
+      // Bind ViewModel — prefer the instance already on the artboard,
+      // otherwise build one from the VM definition and bind it.
+      try {
+        // 1. Reuse whatever is already bound (set by Rive editor defaults)
+        let bound = riveInst.viewModelInstance || null;
+        if (bound) {
+          console.log('[Rive] reusing existing bound VM instance');
+        } else {
+          const vm = riveInst.viewModelByName(resolvedVmName);
+          if (vm) {
+            // Prefer default; fall back to creating a fresh instance
+            bound = vm.defaultInstance?.() || vm.instance?.();
+            if (bound) {
+              riveInst.bindViewModelInstanceToStateMachine?.(resolvedSmName, bound);
+              riveInst.bindViewModelInstance?.(bound);
+              console.log('[Rive] freshly bound VM instance to artboard + SM');
+            }
+            try {
+              const props = vm.properties || [];
+              console.log('[Rive] VM properties:',
+                JSON.stringify(props.map(p => ({ name: p.name, type: p.type })), null, 2));
+            } catch (_) {}
+          }
+        }
+        vmInstance = bound;
+        window.__riveVm = vmInstance;
+        window.__rive = riveInst;
+      } catch (e) {
+        console.warn('VM init error:', e);
+      }
+
+      populateInspector();
+      applyRiveState('idle');
+      startLiveRefresh();
+    },
+    onLoadError(e) {
+      console.error('Rive load error', e);
+      document.getElementById('insp-sm').textContent =
+        'Failed to load .riv file — check console for SM/VM names';
+    },
+  });
+}
+
+// ── Rive state control ───────────────────────────────────────
+// SM uses "err" not "error"
+const STATE_MAP = {
+  idle: 'idle', submitted: 'submitted', reasoning: 'reasoning',
+  streaming: 'streaming', ready: 'ready', error: 'err',
+};
+
+function applyRiveState(state) {
+  if (!riveInst || !vmInstance) return;
+  const rivState = STATE_MAP[state] || state;
+
+  try {
+    const sProp = vmInstance.string('state');
+    if (sProp) {
+      sProp.value = rivState;
+      console.log(`[Rive] VM.state := "${rivState}" (read back: "${sProp.value}")`);
+    } else {
+      console.warn('[Rive] VM.state property not found');
+    }
+
+    // Make sure the SM is actually running so it picks up the transition
+    if (typeof riveInst.play === 'function') {
+      try { riveInst.play(resolvedSmName); } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('Rive state error:', e);
+  }
+}
+
+// ── App state machine ────────────────────────────────────────
+window.setAppState = function(state) {
+  appState = state;
+
+  // Pills
+  document.querySelectorAll('.pill').forEach(p =>
+    p.classList.toggle('active', p.dataset.s === state));
+
+  // Dot + label
+  const color = STATE_COLORS[state] || '#4b5563';
+  document.getElementById('dot').style.background = color;
+  document.getElementById('state-name').textContent = state;
+  document.getElementById('rive-state-label').textContent = state;
+  document.getElementById('rive-state-label').style.color = color;
+
+  // Drive Rive
+  applyRiveState(state);
+};
+
+// ── Inspector ────────────────────────────────────────────────
+function populateInspector() {
+  // SM name
+  document.getElementById('insp-sm').innerHTML =
+    `<div class="insp-row"><span class="name">${SM_NAME}</span><span class="tag sm">SM</span></div>`;
+
+  // VM
+  if (vmInstance) {
+    document.getElementById('insp-vm').innerHTML =
+      `<div class="insp-row"><span class="name">${VM_NAME}</span><span class="tag vm">VM</span></div>
+       <div class="insp-row"><span class="name">state</span><span class="tag str">string</span></div>
+       <div class="insp-row"><span class="name">isVisible</span><span class="tag bool">boolean</span></div>`;
+  } else {
+    document.getElementById('insp-vm').textContent = 'ViewModel not accessible';
+  }
+
+  // SM inputs
+  if (smInputs.length === 0) {
+    document.getElementById('insp-inputs').innerHTML =
+      `<div style="font-size:11px;color:var(--muted)">None — state driven entirely by ViewModel</div>`;
+    return;
+  }
+
+  const typeLabel = t => {
+    if (t === StateMachineInputType.Trigger) return ['Trigger', 'trig'];
+    if (t === StateMachineInputType.Boolean) return ['Boolean', 'bool'];
+    if (t === StateMachineInputType.Number)  return ['Number',  'num'];
+    return [`type(${t})`, 'num'];
+  };
+
+  document.getElementById('insp-inputs').innerHTML = smInputs.map(inp => {
+    const [label, cls] = typeLabel(inp.type);
+    const isTrig = inp.type === StateMachineInputType.Trigger;
+    return `<div class="insp-row">
+      <span class="name">${inp.name}</span>
+      <span class="tag ${cls}">${label}</span>
+      ${isTrig
+        ? `<button class="fire-btn" onclick="window.fireInput('${inp.name}')">fire</button>`
+        : `<span class="val" id="inp-val-${inp.name}">${inp.value}</span>`}
+    </div>`;
+  }).join('');
+}
+
+function startLiveRefresh() {
+  setInterval(() => {
+    smInputs.forEach(inp => {
+      const el = document.getElementById(`inp-val-${inp.name}`);
+      if (el) el.textContent = inp.value;
+    });
+
+    const liveEl = document.getElementById('insp-live');
+    if (vmInstance) {
+      try {
+        const s = vmInstance.string('state')?.value ?? '—';
+        const v = vmInstance.boolean('isVisible')?.value ?? '—';
+        liveEl.innerHTML =
+          `<div class="insp-row"><span class="name">state</span><span class="val">"${s}"</span></div>
+           <div class="insp-row"><span class="name">isVisible</span><span class="val">${v}</span></div>`;
+      } catch (_) {}
+    }
+  }, 250);
+}
+
+window.fireInput = function(name) {
+  const inp = smInputs.find(i => i.name === name);
+  if (inp) inp.fire();
+};
+
+window.toggleInspector = function() {
+  document.getElementById('inspector').classList.toggle('open');
+};
+
+// ── Chat ─────────────────────────────────────────────────────
+function appendMsg(role, text) {
+  document.getElementById('welcome')?.remove();
+  const wrap = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = `msg-row ${role}`;
+
+  const av = document.createElement('div');
+  av.className = `avatar ${role}`;
+  av.textContent = role === 'ai' ? 'D' : 'U';
+
+  const bub = document.createElement('div');
+  bub.className = 'bubble';
+  bub.textContent = text;
+
+  row.append(av, bub);
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+  return bub;
+}
+
+const LOREM_POOL = [
+  'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation.',
+  'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus nulla gravida orci a odio.',
+  'Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida.',
+  'Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis.',
+];
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+window.send = async function() {
+  if (busy) return;
+  const input = document.getElementById('msg-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  grow(input);
+  appendMsg('user', text);
+
+  busy = true;
+  document.getElementById('send-btn').disabled = true;
+
+  const aiBub = appendMsg('ai', '');
+  aiBub.classList.add('streaming');
+
+  // submitted (brief) → reasoning (~2 s) → streaming (~2.5 s) → ready → idle
+  setAppState('submitted');
+  await sleep(400);
+
+  setAppState('reasoning');
+  await sleep(2000);
+
+  setAppState('streaming');
+  const reply = LOREM_POOL[Math.floor(Math.random() * LOREM_POOL.length)];
+  const totalStreamMs = 2200;
+  const perChar = totalStreamMs / reply.length;
+  for (let i = 0; i < reply.length; i++) {
+    aiBub.textContent = reply.slice(0, i + 1);
+    document.getElementById('messages').scrollTop = 9999;
+    await sleep(perChar);
+  }
+
+  aiBub.classList.remove('streaming');
+  setAppState('ready');
+
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+
+  // settle back to idle after 1.5 s
+  setTimeout(() => { if (appState === 'ready') setAppState('idle'); }, 1500);
+};
+
+window.onKey = function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+};
+
+window.grow = function(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+};
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+initRive();
+</script>
+</body>
+</html>
