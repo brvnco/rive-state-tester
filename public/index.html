@@ -8,16 +8,16 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0c0c0c;
-      --surface: #161616;
-      --surface2: #1f1f1f;
-      --border: #2a2a2a;
-      --text: #e2e2e2;
-      --muted: #606060;
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface2: #f1f1f3;
+      --border: #e3e3e6;
+      --text: #1a1a1a;
+      --muted: #8a8a90;
       --accent: #6366f1;
       --accent-hover: #4f46e5;
-      --user-bg: #1e1b4b;
-      --user-text: #c7d2fe;
+      --user-bg: #e0e7ff;
+      --user-text: #312e81;
     }
 
     body {
@@ -65,19 +65,19 @@
       transition: all .15s;
       white-space: nowrap;
     }
-    .pill:hover { border-color: #444; color: var(--text); }
+    .pill:hover { border-color: #b8b8be; color: var(--text); }
     .pill.active { border-color: transparent; color: #fff; }
-    .pill[data-s="idle"].active    { background: #374151; }
-    .pill[data-s="submitted"].active { background: #1d4ed8; }
-    .pill[data-s="reasoning"].active { background: #92400e; }
-    .pill[data-s="streaming"].active { background: #065f46; }
-    .pill[data-s="ready"].active   { background: #4c1d95; }
-    .pill[data-s="error"].active   { background: #7f1d1d; }
+    .pill[data-s="idle"].active    { background: #6b7280; }
+    .pill[data-s="submitted"].active { background: #2563eb; }
+    .pill[data-s="reasoning"].active { background: #d97706; }
+    .pill[data-s="streaming"].active { background: #059669; }
+    .pill[data-s="ready"].active   { background: #7c3aed; }
+    .pill[data-s="error"].active   { background: #dc2626; }
 
     .state-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
-      background: #374151;
+      background: #b8b8be;
       transition: background .3s;
       flex-shrink: 0;
     }
@@ -119,6 +119,7 @@
       overflow-y: auto;
       padding: 28px 0 8px;
       scroll-behavior: smooth;
+      position: relative;
     }
     #messages::-webkit-scrollbar { width: 4px; }
     #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -141,8 +142,27 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-    .avatar.ai { background: linear-gradient(135deg, var(--accent), #8b5cf6); color: #fff; }
-    .avatar.user { background: #2d2d2d; color: #888; }
+    .avatar.ai {
+      background: transparent;
+      overflow: hidden;
+      width: 72px; height: 72px;
+      margin-top: -8px;
+      visibility: hidden;   /* placeholder — real bird floats over the latest */
+    }
+    .avatar.ai canvas { width: 100%; height: 100%; display: block; }
+
+    #floating-avatar {
+      position: absolute;
+      width: 72px;
+      height: 72px;
+      pointer-events: none;
+      transition: transform .45s cubic-bezier(.4, 0, .2, 1), opacity .25s;
+      opacity: 0;
+      z-index: 5;
+      will-change: transform;
+    }
+    #floating-avatar canvas { width: 100%; height: 100%; display: block; }
+    .avatar.user { background: #d4d4d8; color: #52525b; }
 
     .bubble {
       max-width: calc(100% - 50px);
@@ -205,18 +225,18 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 12px 0 4px;
-      gap: 6px;
-      min-height: 160px;
+      padding: 16px 0 6px;
+      gap: 8px;
+      min-height: 220px;
       justify-content: center;
     }
 
     #rive-wrap {
-      width: 140px;
-      height: 140px;
+      width: 200px;
+      height: 200px;
       position: relative;
     }
-    #rive-canvas { width: 140px; height: 140px; display: block; }
+    #rive-canvas { width: 200px; height: 200px; display: block; }
 
     #rive-state-label {
       font-size: 10px;
@@ -337,19 +357,19 @@
     }
     .insp-row .name { color: var(--text); font-weight: 500; }
     .insp-row .type { color: var(--muted); font-size: 10px; }
-    .insp-row .val  { color: #86efac; font-size: 10px; font-family: monospace; }
+    .insp-row .val  { color: #047857; font-size: 10px; font-family: monospace; }
 
     .fire-btn {
       padding: 2px 7px;
       border-radius: 4px;
-      background: #1e1b4b;
-      border: 1px solid #3730a3;
-      color: #a5b4fc;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      color: #4338ca;
       font-size: 10px;
       cursor: pointer;
       font-family: inherit;
     }
-    .fire-btn:hover { background: #312e81; }
+    .fire-btn:hover { background: #e0e7ff; }
 
     .tag {
       display: inline-block;
@@ -358,21 +378,21 @@
       font-size: 10px;
       font-weight: 500;
     }
-    .tag.sm  { background: #1e1b4b; color: #a5b4fc; border: 1px solid #3730a3; }
-    .tag.vm  { background: #052e16; color: #86efac; border: 1px solid #166534; }
-    .tag.str { color: #fbbf24; }
-    .tag.bool{ color: #60a5fa; }
-    .tag.num { color: #f472b6; }
-    .tag.trig{ color: #a78bfa; }
+    .tag.sm  { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .tag.vm  { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .tag.str { color: #b45309; }
+    .tag.bool{ color: #2563eb; }
+    .tag.num { color: #be185d; }
+    .tag.trig{ color: #6d28d9; }
 
     /* ─── Error toast ─── */
     #toast {
       position: fixed;
       bottom: 90px; left: 50%;
       transform: translateX(-50%) translateY(10px);
-      background: #450a0a;
-      border: 1px solid #7f1d1d;
-      color: #fca5a5;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
       padding: 9px 18px;
       border-radius: 9px;
       font-size: 13px;
@@ -414,6 +434,7 @@
 
     <!-- Messages -->
     <div id="messages">
+      <div id="floating-avatar"><canvas width="144" height="144"></canvas></div>
       <div id="welcome">
         <h1>Dytto</h1>
         <p>Chat with the AI to see real state transitions.<br>Or use the bar above to manually trigger any state.</p>
@@ -427,7 +448,7 @@
     <!-- Rive loader -->
     <div id="rive-zone">
       <div id="rive-wrap">
-        <canvas id="rive-canvas" width="280" height="280"></canvas>
+        <canvas id="rive-canvas" width="400" height="400"></canvas>
       </div>
       <span id="rive-state-label">idle</span>
     </div>
@@ -590,6 +611,11 @@ function applyRiveState(state) {
       console.warn('[Rive] VM.state property not found');
     }
 
+    // Broadcast to every avatar Rive instance
+    for (const v of avatarVMs) {
+      try { v.string('state').value = rivState; } catch (_) {}
+    }
+
     // Make sure the SM is actually running so it picks up the transition
     if (typeof riveInst.play === 'function') {
       try { riveInst.play(resolvedSmName); } catch (_) {}
@@ -691,6 +717,48 @@ window.toggleInspector = function() {
 };
 
 // ── Chat ─────────────────────────────────────────────────────
+// Single shared VM instance for the floating avatar bird
+const avatarVMs = [];   // kept for compatibility with applyRiveState broadcast
+
+function mountFloatingAvatar() {
+  const canvas = document.querySelector('#floating-avatar canvas');
+  if (!canvas) return;
+  const inst = new Rive({
+    src: '/loader.riv',
+    canvas,
+    autoplay: true,
+    stateMachines: [resolvedSmName],
+    layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
+    onLoad() {
+      inst.resizeDrawingSurfaceToCanvas();
+      try {
+        const vm = inst.viewModelByName(resolvedVmName);
+        if (vm) {
+          const vmi = vm.defaultInstance?.() || vm.instance?.();
+          if (vmi) {
+            inst.bindViewModelInstanceToStateMachine?.(resolvedSmName, vmi);
+            inst.bindViewModelInstance?.(vmi);
+            avatarVMs.push(vmi);
+            try { vmi.string('state').value = STATE_MAP[appState] || appState; } catch (_) {}
+          }
+        }
+      } catch (e) { console.warn('avatar VM init error', e); }
+    },
+  });
+}
+
+function moveFloatingAvatarTo(row) {
+  const float = document.getElementById('floating-avatar');
+  const slot  = row.querySelector('.avatar.ai');
+  if (!float || !slot) return;
+  const wrap = document.getElementById('messages');
+  // offsetTop / offsetLeft relative to nearest positioned ancestor (#messages)
+  const top  = slot.offsetTop;
+  const left = slot.offsetLeft;
+  float.style.transform = `translate(${left}px, ${top - 8}px)`;
+  float.style.opacity = '1';
+}
+
 function appendMsg(role, text) {
   document.getElementById('welcome')?.remove();
   const wrap = document.getElementById('messages');
@@ -699,7 +767,7 @@ function appendMsg(role, text) {
 
   const av = document.createElement('div');
   av.className = `avatar ${role}`;
-  av.textContent = role === 'ai' ? 'D' : 'U';
+  if (role === 'user') av.textContent = 'U';
 
   const bub = document.createElement('div');
   bub.className = 'bubble';
@@ -707,6 +775,12 @@ function appendMsg(role, text) {
 
   row.append(av, bub);
   wrap.appendChild(row);
+
+  if (role === 'ai') {
+    // Wait a frame so layout is computed before measuring
+    requestAnimationFrame(() => moveFloatingAvatarTo(row));
+  }
+
   wrap.scrollTop = wrap.scrollHeight;
   return bub;
 }
@@ -780,6 +854,14 @@ function showToast(msg) {
 
 // ── Boot ─────────────────────────────────────────────────────
 initRive();
+mountFloatingAvatar();
+
+// Keep the floating avatar locked to the last AI message on resize / scroll-relayout
+function reanchorFloatingAvatar() {
+  const rows = document.querySelectorAll('.msg-row.ai');
+  if (rows.length) moveFloatingAvatarTo(rows[rows.length - 1]);
+}
+window.addEventListener('resize', reanchorFloatingAvatar);
 </script>
 </body>
 </html>
