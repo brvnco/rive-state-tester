@@ -93,6 +93,39 @@ Hard-reload (⌘⇧R). The server sends `Cache-Control: no-store`, but the brows
 **Server logs `PermissionError: Operation not permitted`**
 You're trying to read a .riv from outside the project root (e.g. `~/Documents`). Either move the file into the project or grant Full Disk Access to your Python binary in System Settings → Privacy & Security.
 
+## Storybook
+
+The Rive loader is also wrapped as a React component (`src/components/Loader/Loader.jsx`) with stories for every state, plus stories for `Avatar` and `ChatBubble`. Storybook is the canonical place to visually QA the .riv across all states without needing the chat UI.
+
+```bash
+npm install
+npm run storybook   # opens http://localhost:6006
+```
+
+Components:
+
+- **Loader** — bare Rive bird, one story per state (idle, submitted, reasoning, streaming, ready, error).
+- **Avatar** — the same loader at avatar size (72px) used as the AI profile picture.
+- **ChatBubble** — message row that combines `Avatar` with a styled bubble. Stories cover user messages, AI streaming, AI reasoning, and AI error.
+
+## Chromatic
+
+A GitHub Actions workflow (`.github/workflows/chromatic.yml`) publishes Storybook to Chromatic on every push and PR and runs visual regression snapshots.
+
+**One-time setup:**
+
+1. Create a Chromatic project at <https://www.chromatic.com/start> and link it to the GitHub repo.
+2. Copy the generated **Project Token**.
+3. In GitHub → repo Settings → Secrets and variables → Actions, add a new secret named `CHROMATIC_PROJECT_TOKEN` with that value.
+
+After that, every PR gets a Chromatic build and visual diffs. To run locally:
+
+```bash
+CHROMATIC_PROJECT_TOKEN=<token> npm run chromatic
+```
+
+Rive animations are time-based, so stories use `chromatic: { pauseAnimationAtEnd: true, delay: 800 }` (in `.storybook/preview.js`) to snapshot each one at a deterministic frame.
+
 ## License
 
 Internal tool — no license attached. Do whatever you want with it inside the team.
